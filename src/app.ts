@@ -3,9 +3,20 @@ import cors from "cors";
 import { ChessGame } from "./database";
 
 const app = express();
+import http from 'http';
+const server = new http.Server(app);
+import {Server} from 'socket.io';
+
+
+
 const port = 4001;
 
 app.use(cors());
+
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  next();
+});
 
 app.get("/", (req, res) => {
   res.send("First route");
@@ -119,6 +130,37 @@ app.get("/getUniqueGameId", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Server runnig on PORT ${port}`);
+});
+
+var io = new Server(server,{
+  cors: {
+    origin: '*',
+  }
+});
+
+//Whenever someone connects this gets executed
+io.on('connection', function(socket) {
+  console.log('A user connected');
+
+  socket.on('currentState', (data) => {
+    console.log('data received', data);
+
+    ChessGame.find({ gameId: data['gameId']}, function (err, docs) {
+      if (err) {
+        socket.emit('currentStateResp', [])
+      } else {
+        socket.emit('currentStateResp', docs[0]['state']);
+      }
+
+    });
+
+    
+  })
+
+  //Whenever someone disconnects this piece of code executed
+  socket.on('disconnect', function () {
+     console.log('A user disconnected');
+  });
 });
